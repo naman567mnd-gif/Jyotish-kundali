@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Admin Dashboard - Auto Barcode Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg-color: #0b0f19; --card-bg: #111827; --accent-gold: #f59e0b; --accent-green: #10b981; --text-main: #f3f4f6; --text-muted: #9ca3af; --border-color: #1f2937; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px 3%; }
+        #loginSection { display: flex; justify-content: center; align-items: center; height: 90vh; }
+        .login-card { background-color: var(--card-bg); border: 1px solid var(--border-color); padding: 40px; border-radius: 12px; width: 100%; max-width: 400px; text-align: center; }
+        .login-card input { width: 100%; padding: 12px; background: #030712; border: 1px solid var(--border-color); color: white; border-radius: 6px; margin-bottom: 15px; }
+        .login-card button { width: 100%; padding: 12px; background: var(--accent-gold); color: #000; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        #dashboardSection { display: none; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+        .logout-btn { background-color: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+        .nav-links-admin { display: flex; gap: 15px; margin-bottom: 20px; }
+        .nav-link-btn { background: #1f2937; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem; }
+        .nav-link-btn.active { background: var(--accent-gold); color: #000; }
+        .table-container { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow-x: auto; padding: 25px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1200px; }
+        th, td { padding: 15px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { color: var(--accent-gold); background: #030712; text-transform: uppercase; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; }
+        .status-pending { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .status-verified { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .verify-btn { background: var(--accent-green); color: #000; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .dispatch-btn { background: var(--accent-gold); color: #000; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        .wa-btn { background: #25d366; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 5px; text-decoration: none; display: inline-block; font-size: 0.8rem; }
+        .qr-code-img { width: 60px; height: 60px; background: #fff; padding: 3px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div id="loginSection">
+        <div class="login-card">
+            <h2><i class="fa-solid fa-lock" style="color: var(--accent-gold);"></i> एडमिन लॉगिन</h2>
+            <form onsubmit="handleLogin(event)">
+                <input type="text" id="adminUser" placeholder="ID (free)" required>
+                <input type="password" id="adminPass" placeholder="Pass (0099)" required>
+                <button type="submit">लॉगिन करें</button>
+            </form>
+        </div>
+    </div>
+    <div id="dashboardSection">
+        <div class="header">
+            <h2><i class="fa-solid fa-chart-line" style="color: var(--accent-gold);"></i> मास्टर एडमिन डैशबोर्ड (Auto Barcode & History)</h2>
+            <button onclick="handleLogout()" class="logout-btn">लॉगआउट</button>
+        </div>
+        <div class="nav-links-admin">
+            <a href="admin.html" class="nav-link-btn active">ऑर्डर्स और बारकोड</a>
+            <a href="scanner.html" class="nav-link-btn">QR / Barcode Scanner App</a>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order ID & Auto QR</th>
+                        <th>दिनांक</th>
+                        <th>ग्राहक नाम & नंबर</th>
+                        <th>पैकेज</th>
+                        <th>डिलीवरी एड्रेस</th>
+                        <th>पेमेंट Status</th>
+                        <th>Dispatch Status & Time</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="masterOrderTable"></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        function handleLogin(event) {
+            event.preventDefault();
+            if(document.getElementById('adminUser').value.trim() === "free" && document.getElementById('adminPass').value.trim() === "0099") {
+                localStorage.setItem('isAdminLoggedIn', 'true');
+                showDashboard();
+            } else { alert("गलत ID/Password!"); }
+        }
+        function showDashboard() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('dashboardSection').style.display = 'block';
+            loadMasterOrders();
+        }
+        function handleLogout() { localStorage.removeItem('isAdminLoggedIn'); location.reload(); }
+        function loadMasterOrders() {
+            let orders = JSON.parse(localStorage.getItem('kundaliMasterOrders')) || [];
+            const tbody = document.getElementById('masterOrderTable');
+            tbody.innerHTML = '';
+            if(orders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">Koi order history uplabdh nahi hai.</td></tr>`;
+                return;
+            }
+            orders.reverse().forEach((ord, index) => {
+                let realIndex = orders.length - 1 - index;
+                const tr = document.createElement('tr');
+                let statusBadge = ord.status === 'Verified' ? `<span class="status-badge status-verified">Verified</span>` : `<span class="status-badge status-pending">Pending</span>`;
+                
+                let qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(ord.id)}`;
+                let waMessage = encodeURIComponent(`Namaste ${ord.name} ji, Shri Jyotish Kendra se aapka order (${ord.id}) verify aur dispatch kar diya gaya hai! Dhanyawad.`);
+                let waLink = `https://wa.me/91${ord.phone}?text=${waMessage}`;
+
+                tr.innerHTML = `
+                    <td><strong>${ord.id}</strong><br><img src="${qrApiUrl}" class="qr-code-img" alt="QR"></td>
+                    <td>${ord.date}</td>
+                    <td>${ord.name}<br><a href="tel:${ord.phone}" style="color: var(--accent-green);">${ord.phone}</a></td>
+                    <td><span style="color: var(--accent-gold);">${ord.package}</span></td>
+                    <td style="font-size:0.85rem; max-width:180px;">${ord.address}</td>
+                    <td>${statusBadge}</td>
+                    <td><span style="color: ${ord.dispatchTime.includes('Dispatched') ? 'var(--accent-green)' : '#ef4444'};">${ord.dispatchTime}</span></td>
+                    <td>
+                        ${ord.status !== 'Verified' ? `<button class="verify-btn" onclick="verifyOrder(${realIndex})">Tick Verify</button><br>` : '✓ Verified<br>'}
+                        ${ord.dispatchTime.includes('Not') ? `<button class="dispatch-btn" onclick="dispatchOrder(${realIndex})">Mark Dispatch</button><br>` : ''}
+                        <a href="${waLink}" target="_blank" class="wa-btn"><i class="fa-brands fa-whatsapp"></i> Send WA Msg</a>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        function verifyOrder(index) {
+            let orders = JSON.parse(localStorage.getItem('kundaliMasterOrders')) || [];
+            orders[index].status = 'Verified';
+            localStorage.setItem('kundaliMasterOrders', JSON.stringify(orders));
+            loadMasterOrders();
+        }
+        function dispatchOrder(index) {
+            let orders = JSON.parse(localStorage.getItem('kundaliMasterOrders')) || [];
+            let timeStr = new Date().toLocaleString('hi-IN');
+            orders[index].dispatchTime = `Dispatched on: ${timeStr}`;
+            localStorage.setItem('kundaliMasterOrders', JSON.stringify(orders));
+            alert("Order Dispatched successfully!");
+            loadMasterOrders();
+        }
+        window.onload = function() { if(localStorage.getItem('isAdminLoggedIn') === 'true') { showDashboard(); } }
+    </script>
+</body>
+  </html>
+  
