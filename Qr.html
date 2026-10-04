@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR & Barcode Camera Scanner App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        :root { --bg-color: #0b0f19; --card-bg: #111827; --accent-gold: #f59e0b; --accent-green: #10b981; --text-main: #f3f4f6; --text-muted: #9ca3af; --border-color: #1f2937; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px 5%; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+        .nav-links-admin { display: flex; gap: 15px; margin-bottom: 25px; }
+        .nav-link-btn { background: #1f2937; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem; }
+        .nav-link-btn.active { background: var(--accent-gold); color: #000; }
+        .options-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .opt-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 25px; border-radius: 12px; text-align: center; cursor: pointer; transition: 0.3s; }
+        .opt-card:hover { border-color: var(--accent-gold); transform: translateY(-3px); }
+        .opt-card i { font-size: 2.5rem; color: var(--accent-gold); margin-bottom: 15px; }
+        .opt-card h3 { color: white; margin-bottom: 10px; }
+        .opt-card p { color: var(--text-muted); font-size: 0.85rem; }
+        .action-section { background: var(--card-bg); border: 1px solid var(--border-color); padding: 30px; border-radius: 12px; display: none; }
+        .action-section h3 { color: var(--accent-gold); margin-bottom: 15px; }
+        input { width: 100%; padding: 12px; background: #030712; border: 1px solid var(--border-color); color: white; border-radius: 6px; margin-bottom: 15px; }
+        .btn-main { background: var(--accent-green); color: #000; font-weight: bold; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; }
+        .history-list { margin-top: 15px; }
+        .history-item { background: #030712; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--accent-gold); display: flex; justify-content: space-between; align-items: center; }
+        #reader { width: 100%; max-width: 400px; margin: 0 auto 20px auto; background: #000; border-radius: 8px; overflow: hidden; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2><i class="fa-solid fa-barcode"></i> QR / Barcode Camera Scanner App</h2>
+        <a href="admin.html" style="color: var(--accent-gold); text-decoration: none; font-weight: bold;"><i class="fa-solid fa-arrow-left"></i> Admin Panel</a>
+    </div>
+
+    <div class="nav-links-admin">
+        <a href="admin.html" class="nav-link-btn">ऑर्डर्स और बारकोड</a>
+        <a href="scanner.html" class="nav-link-btn active">QR Camera Scanner App</a>
+    </div>
+
+    <div class="options-grid">
+        <div class="opt-card" onclick="showSection('scanSec')">
+            <i class="fa-solid fa-camera"></i>
+            <h3>1. Camera Scan & Select</h3>
+            <p>Phone ya Laptop ke camera se QR/Barcode scan karein.</p>
+        </div>
+        <div class="opt-card" onclick="showSection('dispatchSec')">
+            <i class="fa-solid fa-truck-fast"></i>
+            <h3>2. Quick Dispatch</h3>
+            <p>Order ID daal kar turant Dispatch update karein.</p>
+        </div>
+        <div class="opt-card" onclick="showSection('historySec')">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <h3>3. History of Orders</h3>
+            <p>Ab tak sell hui saari kundali aur history track karein.</p>
+        </div>
+    </div>
+
+    <div id="scanSec" class="action-section" style="display: block;">
+        <h3><i class="fa-solid fa-video"></i> Live Camera Barcode / QR Scanner</h3>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:15px;">Camera allow karein aur order ka barcode/QR saamne laayein:</p>
+        <div id="reader"></div>
+        <div id="scanResult" style="margin-top: 20px; color: #e5e7eb; font-weight: bold; text-align: center;"></div>
+    </div>
+
+    <div id="dispatchSec" class="action-section">
+        <h3><i class="fa-solid fa-truck"></i> Instant Dispatch Update</h3>
+        <input type="text" id="dispatchOrderId" placeholder="Order ID darj karein (Jaise: ORD-123456)">
+        <button class="btn-main" onclick="instantDispatch()">Mark As Dispatched Now</button>
+        <div id="dispatchResult" style="margin-top: 15px; color: var(--accent-green); font-weight: bold;"></div>
+    </div>
+
+    <div id="historySec" class="action-section">
+        <h3><i class="fa-solid fa-history"></i> Full Sales & Dispatch History</h3>
+        <div id="fullHistoryList" class="history-list"></div>
+    </div>
+
+    <script>
+        function showSection(secId) {
+            document.querySelectorAll('.action-section').forEach(el => el.style.display = 'none');
+            document.getElementById(secId).style.display = 'block';
+            if(secId === 'historySec') loadHistory();
+            if(secId !== 'scanSec') { stopScanner(); }
+            else { initScanner(); }
+        }
+
+        let html5QrCode;
+        function initScanner() {
+            if(!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 150 } },
+                decodedText => {
+                    lookupScannedOrder(decodedText);
+                },
+                errorMessage => {}
+            ).catch(err => { console.log("Camera error:", err); });
+        }
+
+        function stopScanner() {
+            if(html5QrCode) {
+                html5QrCode.stop().catch(err => {});
+            }
+        }
+
+        function lookupScannedOrder(scannedId) {
+            let orders = JSON.parse(localStorage.getItem('kundaliMasterOrders')) || [];
+            let found = orders.find(o => o.id === scannedId.trim());
+            let res = document.getElementById('scanResult');
+            if(found) {
+                res.innerHTML = `<div style="background:#030712; padding:15px; border-radius:8px; border:1px solid var(--accent-green);">🎉 Scan Successful!<br><strong>ID:</strong> ${found.id}<br><strong>Naam:</strong> ${found.name}<br><strong>Package:</strong> ${found.package}<br><strong>Address:</strong> ${found.address}<br><strong>Status:</strong> ${found.dispatchTime}</div>`;
+            } else {
+                res.innerHTML = `<span style="color:#ef4444;">Scanned ID (${scannedId}) ka koi order database me nahi mila!</span>`;
+            }
+        }
+
+        function instantDispatch() {
+            let id = document.getElementById('dispatchOrderId').value.trim();
+            let orders = JSON.parse(localStorage.getItem('kundaliMasterOrders')) || [];
+            let index = orders.findIndex(o => o.id === id);
+            let res = document.getElementById('dispatchResult');
+            if(index !== -1) {
+                let timeStr = new Date().toLocaleString('hi-IN');
+                orders[index].dispatchTime = `Dispatched on: ${timeStr}`;
+                localStorage.setItem('kundaliMasterOrders', JSON.stringify(orders));
+                res.innerHTML = `Success! Order ${id} successfully Dispatched at ${timeStr}.`;
+            } else { res.innerHTML = `<span style="color:#ef4444;">Invalid Order ID!</span>`; }
+        }
+
+        function loadHistory() {
+            let orders = JSON.parse(localStorage.getItem('kundaliMasterOrders')) || [];
+            let list = document.getElementById('fullHistoryList');
+            list.innerHTML = '';
+            if(orders.length === 0) { list.innerHTML = 'Koi history uplabdh nahi hai.'; return; }
+            orders.reverse().forEach(o => {
+                let div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<div><strong>${o.id}</strong> - ${o.name} (${o.package})<br><small style="color:var(--text-muted);">${o.address}</small></div><div style="text-align:right;"><span style="color:var(--accent-gold);">${o.date}</span><br><small>${o.dispatchTime}</small></div>`;
+                list.appendChild(div);
+            });
+        }
+
+        window.onload = function() {
+            initScanner();
+        }
+    </script>
+</body>
+</html>
